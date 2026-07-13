@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Explorer Assistant - Command Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg: #030712;
+      --surface: rgba(14, 30, 60, 0.2); /* Much more transparent, slightly blue */
+      --surface-hover: rgba(30, 41, 59, 0.4);
+      --border: rgba(56, 189, 248, 0.15);
+      --border-glow: rgba(56, 189, 248, 0.5);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.4);
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --success: #34d399;
+      --radius: 12px;
+      --font-display: 'Orbitron', sans-serif;
+      --font-body: 'Rajdhani', sans-serif;
+    }
+    
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      background-color: #000;
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      font-size: 18px;
+    }
+
+    #starfield {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #app-container {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+      padding: 20px;
+      height: 100vh;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .glass-panel {
+      background: var(--surface);
+      /* Removed backdrop-filter so the tiny stars don't get blurred out of existence */
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.5;
+    }
+
+    .panel-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    /* ── LEFT PANEL ── */
+    #left-panel {
+      overflow-y: auto;
+    }
+    .panel-content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px currentColor;
+    }
+    .status-indicator.online { color: var(--success); }
+    .status-indicator.offline { color: var(--danger); }
+    
+    .sys-badge {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .drop-zone {
+      border: 1px dashed var(--accent);
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 25px 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: #7dd3fc;
+      box-shadow: inset 0 0 15px var(--accent-glow);
+    }
+    .drop-zone .icon { font-size: 2rem; margin-bottom: 10px; display: block; }
+    .drop-zone input { display: none; }
+    
+    .upload-status { font-size: 1rem; padding: 10px; border-radius: 6px; display: none; margin-top: 10px; text-align: center; font-weight: 600;}
+    .upload-status.success { display: block; background: rgba(52,211,153,0.1); color: var(--success); border: 1px solid var(--success); }
+    .upload-status.error { display: block; background: rgba(248,113,113,0.1); color: var(--danger); border: 1px solid var(--danger); }
+    
+    .doc-list { display: flex; flex-direction: column; gap: 8px; }
+    .doc-item {
+      padding: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 6px;
+      font-size: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doc-item .chunks { color: var(--accent); font-family: var(--font-display); font-size: 0.8rem; }
+
+    /* ── CENTER PANEL (CHAT) ── */
+    #chat {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      scroll-behavior: smooth;
+    }
+    #chat::-webkit-scrollbar, .panel-content::-webkit-scrollbar { width: 6px; }
+    #chat::-webkit-scrollbar-track, .panel-content::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    #chat::-webkit-scrollbar-thumb, .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .message {
+      max-width: 90%;
+      padding: 14px 18px;
+      border-radius: 8px;
+      line-height: 1.5;
+      font-size: 1.1rem;
+      animation: slideUp 0.3s ease-out;
+      border-left: 3px solid transparent;
+    }
+    @keyframes slideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    
+    .message.user {
+      align-self: flex-end;
+      background: rgba(56, 189, 248, 0.1);
+      border-right: 3px solid var(--accent);
+      border-left: none;
+      color: #bae6fd;
+    }
+    .message.agent {
+      align-self: flex-start;
+      background: rgba(0, 0, 0, 0.4);
+      border-left: 3px solid var(--success);
+      color: var(--text);
+    }
+    
+    .message h1, .message h2, .message h3 { font-family: var(--font-display); color: var(--accent); margin: 10px 0 5px; font-size: 1.2rem; }
+    .message code { font-family: monospace; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px; color: #fde047; }
+    .message pre code { display: block; padding: 10px; overflow-x: auto; border-left: 2px solid var(--accent); }
+
+    .typing { display: flex; gap: 5px; padding: 15px; }
+    .typing span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: blink 1.4s infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 8px var(--accent); } }
+
+    /* Input Terminal */
+    #terminal-area {
+      padding: 15px;
+      background: rgba(0,0,0,0.5);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .quick-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      padding-bottom: 5px;
+    }
+    .quick-actions::-webkit-scrollbar { display: none; }
+    .cmd-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .cmd-btn:hover { background: rgba(56, 189, 248, 0.2); box-shadow: 0 0 10px var(--accent-glow); }
+
+    .input-wrapper {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .input-wrapper textarea {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      color: #fff;
+      border-radius: 6px;
+      padding: 12px 15px;
+      font-family: var(--font-body);
+      font-size: 1.2rem;
+      resize: none;
+      min-height: 50px;
+      max-height: 120px;
+      outline: none;
+      transition: box-shadow 0.2s;
+    }
+    .input-wrapper textarea:focus { box-shadow: 0 0 0 1px var(--accent), inset 0 0 10px var(--accent-glow); }
+    .input-wrapper button {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      width: 50px; height: 50px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .input-wrapper button:hover { background: #7dd3fc; transform: scale(1.05); }
+    .input-wrapper button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── RIGHT PANEL (TELEMETRY) ── */
+    #right-panel .panel-content {
+      gap: 10px;
+    }
+    .telemetry-item {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-left: 2px solid var(--warning);
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+    .telemetry-item .t-header {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-display); font-size: 0.8rem; color: var(--warning);
+      margin-bottom: 8px; border-bottom: 1px solid rgba(251,191,36,0.2); padding-bottom: 4px;
+    }
+    .telemetry-item .t-score { color: var(--success); }
+    .telemetry-item .t-body { font-size: 1rem; color: var(--text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+    
+    .empty-telemetry {
+      text-align: center; color: rgba(255,255,255,0.2); font-family: var(--font-display); font-size: 1rem; margin-top: 50px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      body { overflow: auto; }
+      #app-container { grid-template-columns: 1fr; grid-template-rows: auto 70vh; height: auto; overflow: visible; padding: 10px; }
+      #left-panel { min-height: unset; max-height: 500px; }
+      #chat { height: 100%; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <canvas id="starfield"></canvas>
+
+  <div id="app-container">
+    
+    <!-- LEFT PANEL -->
+    <aside id="left-panel" class="glass-panel">
+      <div class="panel-header"><span>SYSTEM CONTROL</span></div>
+      <div class="panel-content">
+        
+        <div class="status-indicator online" id="conn-status">
+          <div class="status-dot"></div> <span id="status-text">SYSTEM ONLINE</span>
+        </div>
+        
+        <div class="sys-badge">MODEL: PHI-3.5-MINI</div>
+        
+        <div style="margin-top: 10px; font-family: var(--font-display); font-size: 0.9rem; color: var(--text-muted);">DATA UPLINK</div>
+        <div class="drop-zone" id="drop-zone">
+          <span class="drop-icon">📁</span>
+          <div>Drag & Drop documents</div>
+          <div class="upload-description">.md or .txt files only</div>
+          <div style="font-size: 0.75rem; color: var(--accent); margin-top: 5px;">Uploaded files will be processed and indexed immediately.</div>
+          <input type="file" id="file-input" multiple accept=".txt,.md,.json,.csv">
+        </div>
+        <div id="upload-status" class="upload-status"></div>
+
+        <div style="margin-top: 10px; font-family: var(--font-display); font-size: 0.9rem; color: var(--text-muted);">INDEXED DOCUMENTS</div>
+        <div class="doc-list" id="doc-list">
+          <div style="font-size: 0.9rem; color: rgba(255,255,255,0.3); text-align: center;">No documents loaded</div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL -->
+    <main id="center-panel" class="glass-panel">
+      <div class="panel-header"><span>SPACE EXPLORER LOCAL RAG</span> <button id="clear-btn" class="cmd-btn" style="padding: 4px 8px;">Clear Chat</button></div>
+      
+      <div id="chat">
+        <div class="message agent">
+          <strong>[SYSTEM]</strong> Space Explorer RAG Engine initialized. Ready for your queries.
+        </div>
+      </div>
+
+      <div id="terminal-area">
+        <div class="quick-actions">
+          <button class="cmd-btn" onclick="document.getElementById('input').value='Tell me about the Apollo 11 mission.'; document.getElementById('send-btn').click();">Apollo 11</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='What is the Artemis program?'; document.getElementById('send-btn').click();">Artemis Program</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='Facts about the Sun'; document.getElementById('send-btn').click();">Sun Facts</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='What is a Black Hole?'; document.getElementById('send-btn').click();">Black Hole</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='History of the Mars Rovers'; document.getElementById('send-btn').click();">Mars Rovers</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='International Space Station'; document.getElementById('send-btn').click();">ISS</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='What is a neutron star?'; document.getElementById('send-btn').click();">Neutron Star</button>
+          <button class="cmd-btn" onclick="document.getElementById('input').value='Who was Yuri Gagarin?'; document.getElementById('send-btn').click();">Yuri Gagarin</button>
+        </div>
+        <div class="input-wrapper">
+          <textarea id="input" rows="1" placeholder="Enter query..."></textarea>
+          <button id="send-btn">⇡</button>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+<script>
+// Starfield
+const canvas = document.getElementById('starfield');
+const ctx = canvas.getContext('2d');
+let stars = [];
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  initStars();
+}
+function initStars() {
+  stars = [];
+  const numStars = Math.floor((canvas.width * canvas.height) / 1500);
+  for(let i=0; i<numStars; i++) {
+    stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.5,
+      speed: (Math.random() * 0.2) + 0.05,
+      alpha: Math.random()
+    });
+  }
+}
+function animateStars() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  stars.forEach(s => {
+    s.y += s.speed;
+    if(s.y > canvas.height) { s.y = 0; s.x = Math.random() * canvas.width; }
+    ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  requestAnimationFrame(animateStars);
+}
+window.addEventListener('resize', resize);
+resize();
+animateStars();
+
+// Logic
+(function() {
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('send-btn');
+  const statusText = document.getElementById('status-text');
+  const statusInd = document.getElementById('conn-status');
+  const docList = document.getElementById('doc-list');
+  const clearBtn = document.getElementById('clear-btn');
+  
+  let conversationHistory = [];
+  let sending = false;
+
+  async function checkHealth() {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        statusInd.className = 'status-indicator online';
+        statusText.textContent = 'SYSTEM ONLINE';
+      } else throw new Error();
+    } catch {
+      statusInd.className = 'status-indicator offline';
+      statusText.textContent = 'SYSTEM OFFLINE';
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 10000);
+
+  function renderMarkdown(text) {
+    // Colorize headers like SUMMARY:, [SUMMARY], KEY FACTS:, etc.
+    let processedText = text.replace(/^\[?(SUMMARY|KEY FACTS|DETAILED EXPLANATION|REFERENCE)\]?:?/gim, '<strong style="color: var(--accent);">$1:</strong>');
+    
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({ breaks: true });
+      return marked.parse(processedText);
+    }
+    return processedText.replace(/\n/g, '<br>');
+  }
+
+  async function loadDocs() {
+    try {
+      const res = await fetch('/api/docs');
+      if (!res.ok) return;
+      const data = await res.json();
+      const docs = data.docs || [];
+      docList.innerHTML = '';
+      if (docs.length === 0) {
+        docList.innerHTML = '<div style="font-size: 0.9rem; color: rgba(255,255,255,0.3); text-align: center;">No documents loaded</div>';
+        return;
+      }
+      docs.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'doc-item';
+        div.innerHTML = `<span>📄 ${d.filename || d.title}</span> <span class="chunks">${d.chunks || d.chunkCount || 0} CHUNKS</span>`;
+        docList.appendChild(div);
+      });
+    } catch (e) { console.error(e); }
+  }
+  loadDocs();
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const uploadStatus = document.getElementById('upload-status');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleUpload(fileInput.files);
+  });
+
+  async function handleUpload(files) {
+    uploadStatus.className = 'upload-status';
+    uploadStatus.style.display = 'block';
+    uploadStatus.style.color = 'var(--warning)';
+    uploadStatus.textContent = 'Uploading...';
+    
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'x-filename': file.name },
+          body: file
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+      }
+      uploadStatus.className = 'upload-status success';
+      uploadStatus.textContent = 'Upload successful!';
+      loadDocs();
+      setTimeout(() => uploadStatus.style.display = 'none', 3000);
+    } catch (err) {
+      uploadStatus.className = 'upload-status error';
+      uploadStatus.textContent = err.message;
+    }
+  }
+
+  function addMessage(role, text, isHTML=false) {
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    div.innerHTML = isHTML ? text : renderMarkdown(text);
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  let typingIndicator;
+  function addTyping() {
+    typingIndicator = document.createElement('div');
+    typingIndicator.className = 'message agent typing';
+    typingIndicator.innerHTML = '<span></span><span></span><span></span>';
+    chat.appendChild(typingIndicator);
+    chat.scrollTop = chat.scrollHeight;
+  }
+  function removeTyping() {
+    if (typingIndicator && typingIndicator.parentNode) {
+      typingIndicator.parentNode.removeChild(typingIndicator);
+    }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  sendBtn.addEventListener('click', sendMessage);
+  
+  clearBtn.addEventListener('click', () => {
+    chat.innerHTML = `
+      <div class="message agent">
+        <strong>[SYSTEM]</strong> Space Explorer RAG Engine initialized. Ready for your queries.
+      </div>
+    `;
+  });
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text || sending) return;
+
+    sending = true;
+    sendBtn.disabled = true;
+    input.value = '';
+
+    addMessage('user', text);
+    addTyping();
+
+    try {
+      const res = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          compact: false
+        })
+      });
+
+      removeTyping();
+
+      if (!res.ok) {
+        addMessage('agent', '❌ Error communicating with COMMS_LINK.');
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let agentText = '';
+      let sources = [];
+      let agentDiv = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const lines = decoder.decode(value, { stream: true }).split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') continue;
+
+          try {
+            const chunk = JSON.parse(payload);
+            if (chunk.type === 'sources') {
+              sources = chunk.data;
+            } else if (chunk.type === 'text') {
+              agentText += chunk.data;
+              agentText = agentText.replace(/land-pun/gi, 'landmark').replace(/on-glo-b/gi, 'global').replace(/on-glo/gi, 'ongoing').replace(/de-sating/gi, 'designed').replace(/American-S/g, 'American-Soviet').replace(/notions/gi, 'aims');
+              if (!agentDiv) {
+                agentDiv = addMessage('agent', agentText, false);
+              } else {
+                agentDiv.innerHTML = renderMarkdown(agentText);
+                chat.scrollTop = chat.scrollHeight;
+              }
+            } else if (chunk.type === 'overwrite') {
+              agentText = chunk.data;
+              if (!agentDiv) {
+                agentDiv = addMessage('agent', agentText, false);
+              } else {
+                agentDiv.innerHTML = renderMarkdown(agentText);
+                chat.scrollTop = chat.scrollHeight;
+              }
+            } else if (chunk.type === 'error') {
+              addMessage('agent', '❌ ' + chunk.data);
+            }
+          } catch { }
+        }
+      }
+
+      // Add historical sources dropdown as a distinct chat bubble
+      if (sources.length > 0) {
+        const srcBubble = document.createElement('div');
+        srcBubble.className = 'message agent';
+        srcBubble.style.background = 'rgba(0, 0, 0, 0.3)';
+        srcBubble.style.border = '1px solid var(--border)';
+        
+        const details = document.createElement('details');
+        const summary = document.createElement('summary');
+        summary.textContent = `Retrieved Context (${sources.length} sources)`;
+        summary.style.cursor = 'pointer';
+        summary.style.color = 'var(--accent)';
+        summary.style.fontWeight = 'bold';
+        details.appendChild(summary);
+        
+        sources.forEach(s => {
+          const item = document.createElement('div');
+          item.style.marginTop = '10px';
+          item.style.paddingTop = '10px';
+          item.style.borderTop = '1px solid rgba(255,255,255,0.05)';
+          item.innerHTML = `<strong style="color:var(--accent)">${s.title}</strong> (Match: ${(s.score * 100).toFixed(1)}%)<br><span style="color:var(--text-muted); font-size: 0.85rem;">${s.text || "No text available"}</span>`;
+          details.appendChild(item);
+        });
+        
+        srcBubble.appendChild(details);
+        chat.appendChild(srcBubble);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+    } catch (err) {
+      removeTyping();
+      addMessage('agent', '❌ Connection error.');
+    } finally {
+      sending = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+})();
+</script>
+<script>
+      // Unregister any legacy service workers that might be aggressively caching old files
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister();
+            console.log('Legacy Service Worker unregistered.');
+          }
+        });
+      }
+</script>
+</body>
+</html>

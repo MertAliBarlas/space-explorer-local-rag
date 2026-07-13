@@ -1,0 +1,30 @@
+# Local RAG DB files
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# Editor / IDE
+
+# Foundry Local model cache (large files)
+.foundry/
+models/
+
+# Agent Memory Bank
+memory-bank/

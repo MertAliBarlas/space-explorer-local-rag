@@ -1,0 +1,8 @@
+---
+title: Black Holes
+category: Astrophysics
+id: SPACE-004
+---
+
+# Black Holes
+A black hole is a region of spacetime where gravity is so strong that nothing—no particles or even electromagnetic radiation such as light—can escape from it. The theory of general relativity predicts that a sufficiently compact mass can deform spacetime to form a black hole.
