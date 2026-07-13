@@ -11,9 +11,7 @@ Designed and developed by **Mert Ali Barlas**.
 ![Hero Banner: Deep Space Glassmorphism UI](screenshots/01-hero-desktop.png)
 
 This is a standalone, end-to-end Local AI application integrating Small Language Models (SLMs) completely on-device with **zero internet dependency**. By leveraging the **Microsoft Foundry Local SDK** and a local `phi-3.5-mini` model, this application delivers fast, private, and highly accurate answers grounded in a customized space document knowledge base.
-
-The interface features a **Deep Space Glassmorphism UI**, complete with a computationally optimized HTML5 Canvas starfield that dynamically tracks mouse movement using parallax scrolling at a locked 60FPS.
-
+The interface features a **Deep Space Glassmorphism UI**, complete with a computationally optimized HTML5 Canvas starfield animation running at a locked 60FPS.
 ## 🛠️ Technical Architecture
 
 ### 1. Offline RAG Pipeline
