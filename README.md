@@ -25,7 +25,13 @@ The interface features a **Deep Space Glassmorphism UI**, complete with a comput
 - **Frontend**: Vanilla HTML/JS/CSS focusing on zero-dependency, high-performance rendering that scales seamlessly from 1080p desktop monitors to 375px mobile screens.
 
 ![Active Chat showcasing RAG references and structured output](screenshots/02-chat-with-sources.png)
-![Responsive Mobile View](screenshots/03-mobile-view.png)
+
+### 3. Mobile-First Responsiveness
+The interface is meticulously designed to support full mobile compatibility out of the box. Whether you are on a massive desktop monitor or a 375px wide smartphone screen, the Deep Space UI automatically re-flows and scales typography perfectly.
+
+<p align="center">
+  <img src="screenshots/03-mobile-view.png" alt="Responsive Mobile View" width="300" />
+</p>
 
 ---
 
